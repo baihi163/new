@@ -1,3 +1,6 @@
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -80,6 +83,7 @@ train_losses, train_accs, test_accs = [], [], []
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
+    epoch_loss_sum = 0.0
     correct = 0
     total = 0
     for i, data in enumerate(trainloader, 0):
@@ -90,18 +94,19 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
+        epoch_loss_sum += loss.item() # <--- 新增：累加所有Loss
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
         if i % 200 == 199:
             print(f'Epoch [{epoch+1}/{num_epochs}], Batch {i+1}, Loss: {running_loss / 200:.3f}')
             running_loss = 0.0
-    train_loss = running_loss * 200 / total if total > 0 else 0  # 修正 Train Loss 计算方式
+    train_loss = epoch_loss_sum / len(trainloader)
     train_acc = 100 * correct / total if total > 0 else 0
     train_losses.append(train_loss)
     train_accs.append(train_acc)
     print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_loss:.3f}, Train Acc: {train_acc:.2f}%')
-
+    
     model.eval()
     correct = 0
     total = 0
