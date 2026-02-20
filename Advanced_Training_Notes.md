@@ -54,3 +54,43 @@ def mixup_data(x, y, alpha=1.0):
 
 ### 结果分析
 可以看到在 Epoch 30 之后，随着学习率下降，准确率出现了显著的提升（退火效应）...
+## 🚀 进阶优化策略 (Tricks)
+
+为了进一步提升模型泛化能力并冲击更高准确率，我在训练中引入了两个经典的增强策略：**Label Smoothing** 和 **Random Erasing**。
+
+### 1. Label Smoothing (标签平滑)
+
+**原理**：
+传统的 One-hot 编码标签（如 `[0, 1, 0]`）会强迫模型对预测结果过度自信，容易导致过拟合。标签平滑将硬标签（Hard Label）转换为软标签（Soft Label），例如 `[0.1, 0.8, 0.1]`。
+
+**数学表达**：
+$$ y_{new} = (1 - \epsilon) \times y + \epsilon / K $$
+其中 $\epsilon$ 是平滑系数（通常取 0.1），$K$ 是类别数。
+
+**代码实现**：
+在 PyTorch 中，只需修改损失函数即可：
+```python
+# 使用 label_smoothing=0.1
+criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+### 2. Random Erasing (随机擦除)
+
+**原理**：
+这是一种数据增强技术，通过在图像中随机选择一个矩形区域并用随机值或固定值擦除，模拟物体遮挡的情况。这迫使模型学习识别物体的局部特征，而不仅仅依赖整体轮廓。
+
+**参数设置**：
+- `p=0.5`: 50% 的概率触发擦除。
+- `scale=(0.02, 0.33)`: 擦除面积占图像的 2% 到 33%。
+- `ratio=(0.3, 3.3)`: 擦除区域的长宽比。
+
+**代码实现**：
+添加到 `transforms.Compose` 的末尾（必须在 Normalization 之后）：
+
+```python
+transform_train = transforms.Compose([
+    # ... 其他变换 ...
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    # 新增随机擦除
+    transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0),
+])
+
