@@ -72,6 +72,7 @@ $$ y_{new} = (1 - \epsilon) \times y + \epsilon / K $$
 ```python
 # 使用 label_smoothing=0.1
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+```
 ### 2. Random Erasing (随机擦除)
 
 **原理**：
