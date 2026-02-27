@@ -26,12 +26,12 @@ $$
 ### 残差块结构图
 ```mermaid
 graph LR
-    A[输入 x] --> B[权重层 Conv]
-    B --> C[ReLU 激活]
-    C --> D[权重层 Conv]
+    A["输入 x"] --> B["权重层 Conv"]
+    B --> C["ReLU 激活"]
+    C --> D["权重层 Conv"]
     D --> E((+))
-    A -->|恒等映射 Shortcut| E
-    E --> F[ReLU 激活] --> G[输出 H(x)]
+    A -->|"恒等映射 Shortcut"| E
+    E --> F["ReLU 激活"] --> G["输出 H(x)"]
 ```
 
 **为什么有效？**
