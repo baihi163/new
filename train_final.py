@@ -7,6 +7,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import time
+from model_seresnet import SEResNet
 
 # 1. 解决 OMP 报错 (Windows 特有)
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
@@ -94,7 +95,7 @@ if __name__ == '__main__':
     testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
 
     # 初始化模型
-    model = SimpleCNN().to(device)
+    model = SEResNet(num_classes=10).to(device)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 

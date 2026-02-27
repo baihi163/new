@@ -7,33 +7,28 @@ import numpy as np
 import os
 import time
 
-# 1. 解决 OMP 报错 (你的老朋友)
+# 1. 解决 OMP 报错
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-# 2. 设备配置
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+# 定义 Mixup 函数 (放在外面没问题)
+def mixup_data(x, y, alpha=1.0, device='cpu'):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
 
-# 3. 数据预处理 (保持不变)
-transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-])
+    batch_size = x.size(0)
+    index = torch.randperm(batch_size).to(device)
 
-transform_test = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-])
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
 
-trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
 
-testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
-
-# 4. 定义模型 (保持 SimpleCNN 不变)
+# 定义模型 (放在外面没问题)
 class SimpleCNN(nn.Module):
     def __init__(self):
         super(SimpleCNN, self).__init__()
@@ -66,87 +61,83 @@ class SimpleCNN(nn.Module):
         x = self.fc3(x)
         return x
 
-# ==========================================
-# 🔥 核心技巧 1: Mixup 数据增强函数
-# ==========================================
-def mixup_data(x, y, alpha=1.0):
-    '''Returns mixed inputs, pairs of targets, and lambda'''
-    if alpha > 0:
-        lam = np.random.beta(alpha, alpha)
-    else:
-        lam = 1
+# 🔥 关键修改：所有的执行逻辑都必须放在这里面！
+if __name__ == '__main__':
+    # 设备配置
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
-    batch_size = x.size(0)
-    index = torch.randperm(batch_size).to(device)
+    # 数据预处理
+    transform_train = transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
 
-    mixed_x = lam * x + (1 - lam) * x[index, :]
-    y_a, y_b = y, y[index]
-    return mixed_x, y_a, y_b, lam
+    transform_test = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
 
-def mixup_criterion(criterion, pred, y_a, y_b, lam):
-    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+    # 数据集加载
+    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
 
-# ==========================================
-# 主训练逻辑
-# ==========================================
-model = SimpleCNN().to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
+    testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
 
-# 🔥 核心技巧 2: Warmup (使用 OneCycleLR)
-# max_lr=0.1: 最大学习率
-# epochs=40: 总训练轮数
-# steps_per_epoch: 每一轮有多少个 batch
-scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1, epochs=40, 
-                                                steps_per_epoch=len(trainloader))
+    # 初始化模型
+    model = SimpleCNN().to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 
-print("Start Advanced Training (Mixup + Warmup)...")
+    # Warmup 调度器
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1, epochs=40, 
+                                                    steps_per_epoch=len(trainloader))
 
-for epoch in range(40):  # 训练 40 轮
-    model.train()
-    running_loss = 0.0
-    
-    for i, data in enumerate(trainloader, 0):
-        inputs, labels = data
-        inputs, labels = inputs.to(device), labels.to(device)
+    print("Start Advanced Training (Mixup + Warmup)...")
 
-        # 1. 使用 Mixup 生成混合数据
-        inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=1.0)
+    for epoch in range(40):  # 训练 40 轮
+        model.train()
+        running_loss = 0.0
         
-        # 2. 正常的前向传播
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        
-        # 3. 计算 Mixup Loss (混合后的 Loss)
-        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
-        
-        loss.backward()
-        optimizer.step()
-        
-        # 4. 更新学习率 (Warmup 调度器在每个 batch 后更新)
-        scheduler.step()
+        for i, data in enumerate(trainloader, 0):
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
 
-        running_loss += loss.item()
-        
-    # 打印当前轮次的 Loss 和 学习率
-    current_lr = optimizer.param_groups[0]['lr']
-    print(f'[Epoch {epoch + 1}] Loss: {running_loss / len(trainloader):.3f} | LR: {current_lr:.5f}')
+            # Mixup
+            inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=1.0, device=device)
+            
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            
+            loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+            
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
 
-    # 测试集验证 (验证时不需要 Mixup)
-    model.eval()
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for data in testloader:
-            images, labels = data
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            running_loss += loss.item()
+            
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f'[Epoch {epoch + 1}] Loss: {running_loss / len(trainloader):.3f} | LR: {current_lr:.5f}')
 
-    acc = 100 * correct / total
-    print(f'Accuracy of the network on test images: {acc:.2f} %')
+        # 验证
+        model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for data in testloader:
+                images, labels = data
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
-print('Finished Advanced Training')
-torch.save(model.state_dict(), 'cifar10_advanced.pth')
+        acc = 100 * correct / total
+        print(f'Accuracy of the network on test images: {acc:.2f} %')
+
+    print('Finished Advanced Training')
+    torch.save(model.state_dict(), 'cifar10_advanced.pth')
