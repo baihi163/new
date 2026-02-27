@@ -64,7 +64,8 @@ $$ \tilde{y} = \lambda y_i + (1 - \lambda) y_j $$
 ## 4. 实验过程与复盘 (Experiments & Analysis)
 
 ### 4.1 训练曲线
-![Training Curves](curves_seresnet.png)
+![Training Curves](curves_resnet18_9487.png)
+
 
 **观察**：
 - **Loss 曲线**：由于使用了 Mixup，训练 Loss 并没有像传统训练那样降到接近 0，而是维持在 0.8 左右。这是正常现象，因为标签被软化了，模型永远无法以 100% 的置信度预测混合图像。
