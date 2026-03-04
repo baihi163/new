@@ -1,3 +1,5 @@
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -195,7 +197,7 @@ if __name__ == '__main__':
         
         if acc > best_acc:
             best_acc = acc
-            print(f"🌟 Best SE-ResNet Saved! Accuracy: {best_acc:.2f} %")
+            print(f"Best SE-ResNet Saved! Accuracy: {best_acc:.2f} %")
             torch.save(model.state_dict(), 'seresnet_best.pth')
 
     total_time = time.time() - start_time

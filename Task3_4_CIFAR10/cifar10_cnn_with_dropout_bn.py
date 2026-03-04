@@ -27,7 +27,7 @@ class SimpleCNN(nn.Module):
         self.bn4 = nn.BatchNorm2d(128)
         self.pool = nn.MaxPool2d(2, 2)
         self.fc1 = nn.Linear(128 * 2 * 2, 1024)  # 增加维度
-        self.dropout1 = nn.Dropout(0.6)
+        self.dropout1 = nn.Dropout(0.6  )
         self.fc2 = nn.Linear(1024, 512)
         self.dropout2 = nn.Dropout(0.6)
         self.fc3 = nn.Linear(512, 10)

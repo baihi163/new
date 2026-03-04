@@ -69,7 +69,7 @@ if __name__ == '__main__':
     target_epochs = [10, 100, 1000]
 
     # 3. 训练循环
-    print("🚀 开始训练...")
+    print(" 开始训练...")
     loss_history = []
 
     for epoch in range(1, EPOCHS + 1):
