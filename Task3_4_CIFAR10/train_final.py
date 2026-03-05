@@ -95,7 +95,8 @@ if __name__ == '__main__':
     testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
 
     # 初始化模型
-    model = SEResNet(num_classes=10).to(device)
+    # 初始化模型
+    model = SEResNet().to(device)  # 移除 num_classes 参数，检查是否仍能工作
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 
